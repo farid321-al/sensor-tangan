@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sensor Tangan 3D</title>
+<style>
+  :root{
+    --bg: #0b0f14;
+    --accent: #5eead4;
+    --accent2: #f472b6;
+    --text: #e7edf3;
+    --muted: #7c8b9a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin:0; padding:0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    height: 100%; width: 100%;
+  }
+  #stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+  video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    filter: brightness(0.5) saturate(1.1);
+  }
+  canvas#overlay {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    transform: scaleX(-1);
+    pointer-events: none;
+    z-index: 3;
+  }
+  canvas#three {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 14px 16px calc(14px + env(safe-area-inset-top)) 16px;
+    z-index: 10;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none;
+  }
+  #hud .title { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  #hud .status { margin-top: 4px; font-size: 14px; font-weight: 600; }
+  #status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444; margin-right:6px; }
+  #status-dot.live { background: var(--accent); }
+
+  #startOverlay {
+    position: absolute; inset: 0; z-index: 30;
+    background: radial-gradient(circle at 50% 30%, #16202b, #0b0f14 70%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px;
+  }
+  #startOverlay h1 { font-size: 21px; margin-bottom: 8px; }
+  #startOverlay p { color: var(--muted); font-size: 14px; max-width: 320px; line-height: 1.5; margin-bottom: 22px; }
+  #startBtn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #06110e; border: none; padding: 14px 32px; border-radius: 999px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  #loading { display:none; margin-top:16px; color: var(--muted); font-size: 13px; }
+  #errorBox { display:none; margin-top:16px; color:#f87171; font-size:13px; max-width:320px; }
+
+  /* Panel bawah: pilihan bentuk */
+  #shapePanel {
+    position: absolute;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  #shapePanel::-webkit-scrollbar { display: none; }
+  .shapeBtn {
+    flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: rgba(16,22,29,0.85);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .shapeBtn .ic {
+    width: 22px; height: 22px;
+    border: 1.5px solid var(--accent);
+  }
+  .ic.bola { border-radius: 50%; }
+  .ic.kubus { }
+  .ic.tabung { border-radius: 50% / 20%; }
+  .ic.kerucut { width:0; height:0; border: none; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 20px solid var(--accent); }
+  .ic.limas { width:0; height:0; border: none; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 20px solid var(--accent2); }
+  .ic.prisma { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); background: var(--accent); }
+  .ic.torus { border-radius: 50%; border-width: 6px; }
+
+  /* Panel warna */
+  #colorPanel {
+    position: absolute;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    left: 0; right: 0;
+    z-index: 10;
+    display: flex; justify-content: center; align-items: center;
+    gap: 9px;
+  }
+  .swatch {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25);
+    cursor: pointer; flex-shrink: 0; padding: 0;
+  }
+  .swatch.active { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+  #customColor {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25); padding: 0;
+    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+    -webkit-appearance: none; appearance: none; cursor: pointer; flex-shrink: 0;
+  }
+  #customColor::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; overflow: hidden; }
+  #customColor::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+  #clearBtn {
+    position: absolute;
+    top: calc(14px + env(safe-area-inset-top));
+    right: 16px;
+    z-index: 10;
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.5);
+    color: #f87171;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    pointer-events: auto;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="overlay"></canvas>
+  <canvas id="three"></canvas>
+
+  <div id="hud">
+    <div>
+      <div class="title">Sensor Tangan 3D</div>
+      <div class="status"><span id="status-dot"></span><span id="status-text">Menunggu kamera</span></div>
+    </div>
+  </div>
+
+  <button id="clearBtn">Hapus Semua</button>
+
+  <div id="shapePanel">
+    <button class="shapeBtn" data-shape="bola"><span class="ic bola"></span>Bola</button>
+    <button class="shapeBtn" data-shape="kubus"><span class="ic kubus"></span>Kubus</button>
+    <button class="shapeBtn" data-shape="balok"><span class="ic kubus" style="width:28px;height:16px"></span>Balok</button>
+    <button class="shapeBtn" data-shape="tabung"><span class="ic tabung"></span>Tabung</button>
+    <button class="shapeBtn" data-shape="kerucut"><span class="ic kerucut"></span>Kerucut</button>
+    <button class="shapeBtn" data-shape="limas"><span class="ic limas"></span>Limas</button>
+    <button class="shapeBtn" data-shape="prisma"><span class="ic prisma"></span>Prisma</button>
+    <button class="shapeBtn" data-shape="torus"><span class="ic torus"></span>Torus</button>
+  </div>
+
+  <div id="colorPanel">
+    <button class="swatch active" data-color="0x5eead4" style="background:#5eead4"></button>
+    <button class="swatch" data-color="0xf87171" style="background:#f87171"></button>
+    <button class="swatch" data-color="0xfbbf24" style="background:#fbbf24"></button>
+    <button class="swatch" data-color="0x34d399" style="background:#34d399"></button>
+    <button class="swatch" data-color="0x60a5fa" style="background:#60a5fa"></button>
+    <button class="swatch" data-color="0xa78bfa" style="background:#a78bfa"></button>
+    <input type="color" id="customColor" value="#5eead4" title="Pilih warna sendiri">
+  </div>
+
+  <div id="startOverlay">
+    <h1>Mainkan bangun ruang pakai tangan</h1>
+    <p>Izinkan akses kamera depan. Tap bentuk di bawah untuk memunculkan objek 3D, lalu kepalkan tangan di dekatnya untuk menggeser & memutar.</p>
+    <button id="startBtn">Aktifkan Kamera</button>
+    <div id="loading">Memuat model deteksi tangan…</div>
+    <div id="errorBox"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" crossorigin="anonymous"></script>
+<script>
+/* ============ ELEMEN DASAR ============ */
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const ctx = overlay.getContext('2d');
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+const errorBox = document.getElementById('errorBox');
+const loading = document.getElementById('loading');
+const statusDot = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const threeCanvas = document.getElementById('three');
+
+/* ============ THREE.JS SETUP ============ */
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 9);
+
+const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.65);
+scene.add(ambient);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+dirLight.position.set(3, 5, 6);
+scene.add(dirLight);
+const rimLight = new THREE.DirectionalLight(0xf472b6, 0.4);
+rimLight.position.set(-4, -2, -3);
+scene.add(rimLight);
+
+// Bidang datar tempat objek diproyeksikan (invisible), sejajar layar di z=0
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const raycaster = new THREE.Raycaster();
+
+function makeGeometry(type){
+  switch(type){
+    case 'bola': return new THREE.SphereGeometry(0.9, 32, 32);
+    case 'kubus': return new THREE.BoxGeometry(1.3, 1.3, 1.3);
+    case 'balok': return new THREE.BoxGeometry(1.8, 1.1, 1.1);
+    case 'tabung': return new THREE.CylinderGeometry(0.8, 0.8, 1.6, 32);
+    case 'kerucut': return new THREE.ConeGeometry(0.9, 1.6, 32);
+    case 'limas': return new THREE.ConeGeometry(0.95, 1.5, 4);
+    case 'prisma': return new THREE.CylinderGeometry(0.9, 0.9, 1.5, 3);
+    case 'torus': return new THREE.TorusGeometry(0.7, 0.28, 20, 48);
+    default: return new THREE.SphereGeometry(0.9, 32, 32);
+  }
+}
+
+let currentColor = 0x5eead4;
+const shapes = []; // { mesh, grabbed, offset, spinSpeed }
+
+function spawnShape(type){
+  const geo = makeGeometry(type);
+  const mat = new THREE.MeshStandardMaterial({
+    color: currentColor,
+    roughness: 0.35,
+    metalness: 0.15,
+    emissive: new THREE.Color(currentColor).multiplyScalar(0.12)
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  // posisi acak dekat tengah supaya tidak numpuk persis
+  mesh.position.set((Math.random()-0.5)*2.5, (Math.random()-0.5)*1.5, 0);
+  mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+  scene.add(mesh);
+  shapes.push({
+    mesh,
+    grabbed: false,
+    offset: new THREE.Vector3(),
+    spin: new THREE.Vector3((Math.random()-0.5)*0.01, (Math.random()-0.5)*0.015, 0)
+  });
+}
+
+// mulai dengan satu bola
+spawnShape('bola');
+
+document.querySelectorAll('.shapeBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=> spawnShape(btn.dataset.shape));
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  shapes.forEach(s => scene.remove(s.mesh));
+  shapes.length = 0;
+});
+
+/* ---- warna ---- */
+const swatches = document.querySelectorAll('.swatch');
+const customColor = document.getElementById('customColor');
+function applyColor(hexNum){
+  currentColor = hexNum;
+  // warnai objek yang sedang digenggam kalau ada, kalau tidak warnai objek terakhir
+  const target = shapes.find(s=>s.grabbed) || shapes[shapes.length-1];
+  if(target){
+    target.mesh.material.color.setHex(hexNum);
+    target.mesh.material.emissive.setHex(hexNum).multiplyScalar(0.12);
+  }
+}
+swatches.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    swatches.forEach(s=>s.classList.remove('active'));
+    btn.classList.add('active');
+    applyColor(parseInt(btn.dataset.color, 16));
+  });
+});
+customColor.addEventListener('input', (e)=>{
+  swatches.forEach(s=>s.classList.remove('active'));
+  applyColor(parseInt(e.target.value.replace('#','0x'), 16));
+});
+
+/* ============ RESPONSIF ============ */
+function onResize(){
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  overlay.width = overlay.clientWidth;
+  overlay.height = overlay.clientHeight;
+}
+window.addEventListener('resize', onResize);
+
+/* ============ DETEKSI TANGAN ============ */
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function isFist(lm){
+  const wrist = lm[0];
+  const tips = [8,12,16,20];
+  const pips = [6,10,14,18];
+  let curled = 0;
+  for(let i=0;i<tips.length;i++){
+    if(dist(lm[tips[i]], wrist) < dist(lm[pips[i]], wrist)) curled++;
+  }
+  return curled >= 3;
+}
+
+// konversi titik layar (px) -> world point di dragPlane pada kedalaman objek
+function screenToWorld(px, py, depthZ){
+  const ndc = new THREE.Vector2(
+    (px / overlay.clientWidth) * 2 - 1,
+    -(py / overlay.clientHeight) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0,0,1), -depthZ);
+  const point = new THREE.Vector3();
+  raycaster.ray.intersectPlane(plane, point);
+  return point || new THREE.Vector3();
+}
+
+function onResults(results){
+  ctx.save();
+  ctx.clearRect(0,0,overlay.width, overlay.height);
+
+  const hasHand = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+
+  if(hasHand){
+    statusDot.classList.add('live');
+    statusText.textContent = 'Tangan terdeteksi';
+
+    const lm = results.multiHandLandmarks[0];
+
+    ctx.fillStyle = 'rgba(94,234,212,0.9)';
+    ctx.strokeStyle = 'rgba(94,234,212,0.5)';
+    ctx.lineWidth = 2;
+    const conn = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+      [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+      [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+    conn.forEach(([a,b])=>{
+      ctx.beginPath();
+      ctx.moveTo(lm[a].x*overlay.width, lm[a].y*overlay.height);
+      ctx.lineTo(lm[b].x*overlay.width, lm[b].y*overlay.height);
+      ctx.stroke();
+    });
+    lm.forEach(p=>{
+      ctx.beginPath();
+      ctx.arc(p.x*overlay.width, p.y*overlay.height, 3, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    const palm = lm[9];
+    const handXpx = (1 - palm.x) * overlay.width; // mirror manual
+    const handYpx = palm.y * overlay.height;
+    const fist = isFist(lm);
+
+    // cari objek terdekat dengan titik tangan (dalam ruang layar)
+    let nearest = null, nearestDist = Infinity;
+    shapes.forEach(s=>{
+      const v = s.mesh.position.clone().project(camera);
+      const spx = (v.x*0.5+0.5) * overlay.clientWidth;
+      const spy = (-v.y*0.5+0.5) * overlay.clientHeight;
+      const d = Math.hypot(spx - handXpx, spy - handYpx);
+      if(d < nearestDist){ nearestDist = d; nearest = s; }
+    });
+
+    if(fist && nearest && !shapes.some(s=>s.grabbed) && nearestDist < 110){
+      nearest.grabbed = true;
+      const worldPt = screenToWorld(handXpx, handYpx, nearest.mesh.position.z);
+      nearest.offset.copy(nearest.mesh.position).sub(worldPt);
+    }
+    if(!fist){
+      shapes.forEach(s=> s.grabbed = false);
+    }
+
+    shapes.forEach(s=>{
+      if(s.grabbed){
+        const worldPt = screenToWorld(handXpx, handYpx, s.mesh.position.z);
+        s.mesh.position.copy(worldPt.add(s.offset));
+        s.mesh.rotation.y += 0.05; // sedikit muter pas digenggam biar terasa "3D"
+        s.mesh.material.emissiveIntensity = 1.4;
+      } else {
+        s.mesh.material.emissiveIntensity = 1;
+      }
+    });
+  } else {
+    statusDot.classList.remove('live');
+    statusText.textContent = 'Tangan tidak terlihat';
+    shapes.forEach(s=> s.grabbed = false);
+  }
+
+  ctx.restore();
+}
+
+/* ============ LOOP RENDER (rotasi idle) ============ */
+function animate(){
+  requestAnimationFrame(animate);
+  shapes.forEach(s=>{
+    if(!s.grabbed){
+      s.mesh.rotation.x += s.spin.x;
+      s.mesh.rotation.y += s.spin.y;
+    }
+  });
+  renderer.render(scene, camera);
+}
+animate();
+
+/* ============ START KAMERA ============ */
+async function start(){
+  loading.style.display = 'block';
+  errorBox.style.display = 'none';
+  startBtn.disabled = true;
+
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    onResize();
+
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    });
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.5
+    });
+    hands.onResults(onResults);
+
+    const cameraUtil = new Camera(video, {
+      onFrame: async () => { await hands.send({ image: video }); },
+      width: 640,
+      height: 480
+    });
+    cameraUtil.start();
+
+    startOverlay.style.display = 'none';
+  } catch(err){
+    loading.style.display = 'none';
+    startBtn.disabled = false;
+    errorBox.style.display = 'block';
+    errorBox.textContent = 'Gagal mengakses kamera: ' + err.message + '. Pastikan izin kamera diaktifkan dan halaman dibuka lewat HTTPS.';
+  }
+}
+startBtn.addEventListener('click', start);
+</script>
+</body>
+</html>
