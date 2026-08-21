@@ -264,6 +264,7 @@ function spawnShape(type){
     mesh,
     grabbed: false,
     offset: new THREE.Vector3(),
+    prevAngle: 0,
     spin: new THREE.Vector3((Math.random()-0.5)*0.01, (Math.random()-0.5)*0.015, 0)
   });
 }
@@ -375,6 +376,13 @@ function onResults(results){
     const handYpx = palm.y * overlay.height;
     const fist = isFist(lm);
 
+    // sudut kemiringan tangan (dari pergelangan ke pangkal jari tengah) untuk kontrol putar
+    const wristXpx = (1 - lm[0].x) * overlay.width;
+    const wristYpx = lm[0].y * overlay.height;
+    const midXpx = (1 - lm[9].x) * overlay.width;
+    const midYpx = lm[9].y * overlay.height;
+    const handAngle = Math.atan2(midYpx - wristYpx, midXpx - wristXpx);
+
     // cari objek terdekat dengan titik tangan (dalam ruang layar)
     let nearest = null, nearestDist = Infinity;
     shapes.forEach(s=>{
@@ -389,6 +397,7 @@ function onResults(results){
       nearest.grabbed = true;
       const worldPt = screenToWorld(handXpx, handYpx, nearest.mesh.position.z);
       nearest.offset.copy(nearest.mesh.position).sub(worldPt);
+      nearest.prevAngle = handAngle;
     }
     if(!fist){
       shapes.forEach(s=> s.grabbed = false);
@@ -398,7 +407,14 @@ function onResults(results){
       if(s.grabbed){
         const worldPt = screenToWorld(handXpx, handYpx, s.mesh.position.z);
         s.mesh.position.copy(worldPt.add(s.offset));
-        s.mesh.rotation.y += 0.05; // sedikit muter pas digenggam biar terasa "3D"
+
+        // putar objek mengikuti kemiringan pergelangan tangan
+        let delta = handAngle - s.prevAngle;
+        if(delta > Math.PI) delta -= Math.PI * 2;
+        if(delta < -Math.PI) delta += Math.PI * 2;
+        s.mesh.rotation.z -= delta;
+        s.prevAngle = handAngle;
+
         s.mesh.material.emissiveIntensity = 1.4;
       } else {
         s.mesh.material.emissiveIntensity = 1;
