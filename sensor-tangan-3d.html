@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Sensor Tangan 3D</title>
+<title>Sensor Tangan 3D — Belajar Bangun Ruang</title>
 <style>
   :root{
     --bg: #0b0f14;
@@ -55,18 +55,79 @@
   #status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444; margin-right:6px; }
   #status-dot.live { background: var(--accent); }
 
+  #topControls{
+    position:absolute;
+    top:calc(14px + env(safe-area-inset-top));
+    right:16px;
+    z-index:10;
+    display:flex; flex-direction:column; gap:6px; align-items:flex-end;
+  }
+  .pillBtn{
+    pointer-events:auto;
+    border-radius:999px;
+    padding:6px 12px;
+    font-size:11px;
+    font-weight:600;
+    border:1px solid;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  #clearBtn{ background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.5); color:#f87171; }
+  #zoomToggleBtn, #learnToggleBtn{ background: rgba(94,234,212,0.15); border-color: rgba(94,234,212,0.5); color: var(--accent); }
+  #zoomToggleBtn.off, #learnToggleBtn.off{ background: rgba(124,139,154,0.15); border-color: rgba(124,139,154,0.4); color: var(--muted); }
+
+  /* Caption unsur bangun ruang */
+  #eduCaption{
+    position:absolute;
+    top:calc(78px + env(safe-area-inset-top));
+    left:50%; transform:translateX(-50%);
+    z-index:10;
+    background:rgba(16,22,29,0.92);
+    border:1px solid rgba(94,234,212,0.45);
+    border-radius:14px;
+    padding:10px 16px;
+    max-width:82vw;
+    text-align:center;
+    font-size:12.5px;
+    line-height:1.45;
+    display:none;
+    pointer-events:none;
+  }
+  #eduCaption b{ color: var(--accent); font-size:14px; }
+
+  /* Legend pemetaan jari -> unsur */
+  #eduLegend{
+    position:absolute;
+    top:calc(78px + env(safe-area-inset-top));
+    left:12px;
+    z-index:10;
+    background:rgba(16,22,29,0.88);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:12px;
+    padding:8px 10px;
+    font-size:10.5px;
+    line-height:1.55;
+    display:none;
+    pointer-events:none;
+    max-width:132px;
+  }
+  .legendTitle{ font-weight:700; color:var(--accent); margin-bottom:3px; text-transform:uppercase; letter-spacing:.03em; }
+
   #startOverlay {
     position: absolute; inset: 0; z-index: 30;
     background: radial-gradient(circle at 50% 30%, #16202b, #0b0f14 70%);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 24px;
+    overflow-y: auto;
   }
-  #startOverlay h1 { font-size: 21px; margin-bottom: 8px; }
-  #startOverlay p { color: var(--muted); font-size: 14px; max-width: 320px; line-height: 1.5; margin-bottom: 22px; }
+  #startOverlay h1 { font-size: 20px; margin-bottom: 8px; }
+  #startOverlay p { color: var(--muted); font-size: 13.5px; max-width: 340px; line-height: 1.55; margin-bottom: 16px; }
+  #startOverlay p b { color: var(--text); }
   #startBtn {
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     color: #06110e; border: none; padding: 14px 32px; border-radius: 999px;
     font-size: 16px; font-weight: 700; cursor: pointer;
+    margin-top: 6px;
   }
   #loading { display:none; margin-top:16px; color: var(--muted); font-size: 13px; }
   #errorBox { display:none; margin-top:16px; color:#f87171; font-size:13px; max-width:320px; }
@@ -95,12 +156,8 @@
     font-size: 10px;
     cursor: pointer;
   }
-  .shapeBtn .ic {
-    width: 22px; height: 22px;
-    border: 1.5px solid var(--accent);
-  }
+  .shapeBtn .ic { width: 22px; height: 22px; border: 1.5px solid var(--accent); }
   .ic.bola { border-radius: 50%; }
-  .ic.kubus { }
   .ic.tabung { border-radius: 50% / 20%; }
   .ic.kerucut { width:0; height:0; border: none; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 20px solid var(--accent); }
   .ic.limas { width:0; height:0; border: none; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 20px solid var(--accent2); }
@@ -130,20 +187,6 @@
   }
   #customColor::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; overflow: hidden; }
   #customColor::-webkit-color-swatch { border: none; border-radius: 50%; }
-
-  #clearBtn {
-    position: absolute;
-    top: calc(14px + env(safe-area-inset-top));
-    right: 16px;
-    z-index: 10;
-    background: rgba(239,68,68,0.15);
-    border: 1px solid rgba(239,68,68,0.5);
-    color: #f87171;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    pointer-events: auto;
-  }
 </style>
 </head>
 <body>
@@ -160,12 +203,19 @@
     </div>
   </div>
 
-  <button id="clearBtn">Hapus Semua</button>
+  <div id="topControls">
+    <button id="clearBtn" class="pillBtn">Hapus Semua</button>
+    <button id="zoomToggleBtn" class="pillBtn">Zoom: ON</button>
+    <button id="learnToggleBtn" class="pillBtn">Mode Belajar: ON</button>
+  </div>
+
+  <div id="eduLegend"></div>
+  <div id="eduCaption"></div>
 
   <div id="shapePanel">
     <button class="shapeBtn" data-shape="bola"><span class="ic bola"></span>Bola</button>
-    <button class="shapeBtn" data-shape="kubus"><span class="ic kubus"></span>Kubus</button>
-    <button class="shapeBtn" data-shape="balok"><span class="ic kubus" style="width:28px;height:16px"></span>Balok</button>
+    <button class="shapeBtn" data-shape="kubus"><span class="ic" style="width:22px;height:22px"></span>Kubus</button>
+    <button class="shapeBtn" data-shape="balok"><span class="ic" style="width:28px;height:16px"></span>Balok</button>
     <button class="shapeBtn" data-shape="tabung"><span class="ic tabung"></span>Tabung</button>
     <button class="shapeBtn" data-shape="kerucut"><span class="ic kerucut"></span>Kerucut</button>
     <button class="shapeBtn" data-shape="limas"><span class="ic limas"></span>Limas</button>
@@ -184,8 +234,12 @@
   </div>
 
   <div id="startOverlay">
-    <h1>Mainkan bangun ruang pakai tangan</h1>
-    <p>Izinkan akses kamera depan. Tap bentuk di bawah untuk memunculkan objek 3D, lalu kepalkan tangan di dekatnya untuk menggeser & memutar.</p>
+    <h1>Belajar Bangun Ruang Pakai Tangan</h1>
+    <p><b>Munculkan bentuk:</b> tap ikon bangun ruang di bawah.<br>
+    <b>Pegang & geser:</b> kepalkan tangan dekat objek (bisa 2 tangan untuk 2 objek beda).<br>
+    <b>Putar:</b> miringkan pergelangan tangan sambil tetap mengepal.<br>
+    <b>Zoom:</b> cubit jempol-telunjuk sambil mengepal (bisa dimatikan lewat tombol).<br>
+    <b>Mode Belajar:</b> buka tangan (jangan mengepal) dekat objek, lalu angkat 1–5 jari untuk menampilkan Sisi, Rusuk, Titik Sudut, dan bagian khusus lainnya satu per satu.</p>
     <button id="startBtn">Aktifkan Kamera</button>
     <div id="loading">Memuat model deteksi tangan…</div>
     <div id="errorBox"></div>
@@ -207,6 +261,8 @@ const loading = document.getElementById('loading');
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 const threeCanvas = document.getElementById('three');
+const eduCaptionEl = document.getElementById('eduCaption');
+const eduLegendEl = document.getElementById('eduLegend');
 
 /* ============ THREE.JS SETUP ============ */
 const scene = new THREE.Scene();
@@ -226,26 +282,224 @@ const rimLight = new THREE.DirectionalLight(0xf472b6, 0.4);
 rimLight.position.set(-4, -2, -3);
 scene.add(rimLight);
 
-// Bidang datar tempat objek diproyeksikan (invisible), sejajar layar di z=0
-const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 const raycaster = new THREE.Raycaster();
 
+/* ============ DATA BANGUN RUANG ============ */
+const GEO_DIMS = {
+  bola:    { r: 0.9 },
+  kubus:   { w: 1.3, h: 1.3, d: 1.3 },
+  balok:   { w: 1.8, h: 1.1, d: 1.1 },
+  tabung:  { r: 0.8, h: 1.6 },
+  kerucut: { r: 0.9, h: 1.6 },
+  limas:   { r: 0.95, h: 1.5, sides: 4 },
+  prisma:  { r: 0.9, h: 1.5, sides: 3 },
+  torus:   { r: 0.7, tube: 0.28 }
+};
+
+// urutan elemen = urutan jumlah jari (1 jari = elemen ke-1, dst, maksimal 5)
+const ELEMENTS_BY_TYPE = {
+  bola:    ['sisi', 'jariJari'],
+  kubus:   ['sisi', 'rusuk', 'titikSudut', 'diagonal', 'bidangDiagonal'],
+  balok:   ['sisi', 'rusuk', 'titikSudut', 'diagonal', 'bidangDiagonal'],
+  tabung:  ['sisi', 'rusuk', 'jariJari', 'selimut'],
+  kerucut: ['sisi', 'rusuk', 'jariJari', 'selimutPuncak'],
+  limas:   ['sisi', 'rusuk', 'titikSudut'],
+  prisma:  ['sisi', 'rusuk', 'titikSudut'],
+  torus:   []
+};
+
+const ELEMENT_INFO = {
+  sisi:           { label: 'Sisi', desc: 'Bidang/sekat yang membatasi bagian dalam & luar bangun ruang.' },
+  rusuk:          { label: 'Rusuk', desc: 'Garis tempat pertemuan atau perpotongan dua buah sisi.' },
+  titikSudut:     { label: 'Titik Sudut', desc: 'Titik hasil pertemuan dari tiga rusuk atau lebih.' },
+  diagonal:       { label: 'Diagonal Sisi & Diagonal Ruang', desc: 'Kuning = diagonal sisi (2 sudut sebidang, tak berdekatan). Pink = diagonal ruang (2 sudut tak sebidang).' },
+  bidangDiagonal: { label: 'Bidang Diagonal', desc: 'Bidang yang dibatasi oleh 2 rusuk & 2 diagonal sisi (contoh salah satu bidangnya).' },
+  jariJari:       { label: 'Jari-jari & Diameter', desc: 'Kuning = jari-jari (pusat ke tepi). Pink = diameter (garis tengah lewat pusat).' },
+  selimut:        { label: 'Selimut', desc: 'Permukaan lengkung yang membungkus bangun ruang.' },
+  selimutPuncak:  { label: 'Selimut & Puncak', desc: 'Hijau = selimut (permukaan lengkung). Titik merah = puncak (ujung paling atas).' }
+};
+
 function makeGeometry(type){
+  const d = GEO_DIMS[type] || GEO_DIMS.bola;
   switch(type){
-    case 'bola': return new THREE.SphereGeometry(0.9, 32, 32);
-    case 'kubus': return new THREE.BoxGeometry(1.3, 1.3, 1.3);
-    case 'balok': return new THREE.BoxGeometry(1.8, 1.1, 1.1);
-    case 'tabung': return new THREE.CylinderGeometry(0.8, 0.8, 1.6, 32);
-    case 'kerucut': return new THREE.ConeGeometry(0.9, 1.6, 32);
-    case 'limas': return new THREE.ConeGeometry(0.95, 1.5, 4);
-    case 'prisma': return new THREE.CylinderGeometry(0.9, 0.9, 1.5, 3);
-    case 'torus': return new THREE.TorusGeometry(0.7, 0.28, 20, 48);
+    case 'bola': return new THREE.SphereGeometry(d.r, 32, 32);
+    case 'kubus': return new THREE.BoxGeometry(d.w, d.h, d.d);
+    case 'balok': return new THREE.BoxGeometry(d.w, d.h, d.d);
+    case 'tabung': return new THREE.CylinderGeometry(d.r, d.r, d.h, 32);
+    case 'kerucut': return new THREE.ConeGeometry(d.r, d.h, 32);
+    case 'limas': return new THREE.ConeGeometry(d.r, d.h, d.sides);
+    case 'prisma': return new THREE.CylinderGeometry(d.r, d.r, d.h, d.sides);
+    case 'torus': return new THREE.TorusGeometry(d.r, d.tube, 20, 48);
     default: return new THREE.SphereGeometry(0.9, 32, 32);
   }
 }
 
+/* bikin semua alat bantu visual unsur (rusuk, titik sudut, diagonal, dst)
+   sebagai child mesh (hidden), supaya ikut posisi/rotasi/skala objeknya */
+function buildEduHelpers(type, mesh){
+  const d = GEO_DIMS[type] || {};
+  const group = new THREE.Group();
+  const els = {};
+
+  // RUSUK — garis tepi, generik dari geometry (skip untuk bola & torus)
+  if(type !== 'bola' && type !== 'torus'){
+    const eg = new THREE.EdgesGeometry(mesh.geometry, 25);
+    const edgesObj = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: 0xfbbf24 }));
+    edgesObj.visible = false;
+    group.add(edgesObj);
+    els.rusuk = edgesObj;
+  }
+
+  // TITIK SUDUT — titik unik dari vertex geometry
+  if(['kubus','balok','limas','prisma'].includes(type)){
+    const pos = mesh.geometry.attributes.position;
+    const seen = new Set(); const pts = [];
+    for(let i=0;i<pos.count;i++){
+      const x=pos.getX(i), y=pos.getY(i), z=pos.getZ(i);
+      const key = x.toFixed(2)+','+y.toFixed(2)+','+z.toFixed(2);
+      if(!seen.has(key)){ seen.add(key); pts.push(x,y,z); }
+    }
+    const vg = new THREE.BufferGeometry();
+    vg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const vertObj = new THREE.Points(vg, new THREE.PointsMaterial({ color: 0xf472b6, size: 0.12, sizeAttenuation: true }));
+    vertObj.visible = false;
+    group.add(vertObj);
+    els.titikSudut = vertObj;
+  }
+
+  // DIAGONAL SISI + RUANG, dan BIDANG DIAGONAL — khusus kubus & balok
+  if(type === 'kubus' || type === 'balok'){
+    const hw = d.w/2, hh = d.h/2, hd = d.d/2;
+    const sisiPts = [];
+    const faces = [
+      { axis:'x', val: hw }, { axis:'x', val:-hw },
+      { axis:'y', val: hh }, { axis:'y', val:-hh },
+      { axis:'z', val: hd }, { axis:'z', val:-hd }
+    ];
+    faces.forEach(f=>{
+      let c;
+      if(f.axis==='x') c=[[f.val,-hh,-hd],[f.val,hh,-hd],[f.val,hh,hd],[f.val,-hh,hd]];
+      else if(f.axis==='y') c=[[-hw,f.val,-hd],[hw,f.val,-hd],[hw,f.val,hd],[-hw,f.val,hd]];
+      else c=[[-hw,-hh,f.val],[hw,-hh,f.val],[hw,hh,f.val],[-hw,hh,f.val]];
+      sisiPts.push(...c[0], ...c[2], ...c[1], ...c[3]);
+    });
+    const ruangPts = [
+      -hw,-hh,-hd,  hw,hh,hd,
+       hw,-hh,-hd, -hw,hh,hd,
+      -hw,hh,-hd,   hw,-hh,hd,
+       hw,hh,-hd,  -hw,-hh,hd
+    ];
+
+    const diagGroup = new THREE.Group();
+    const sisiGeo = new THREE.BufferGeometry();
+    sisiGeo.setAttribute('position', new THREE.Float32BufferAttribute(sisiPts, 3));
+    diagGroup.add(new THREE.LineSegments(sisiGeo, new THREE.LineBasicMaterial({ color: 0xfbbf24 })));
+
+    const ruangGeo = new THREE.BufferGeometry();
+    ruangGeo.setAttribute('position', new THREE.Float32BufferAttribute(ruangPts, 3));
+    diagGroup.add(new THREE.LineSegments(ruangGeo, new THREE.LineBasicMaterial({ color: 0xf472b6 })));
+
+    diagGroup.visible = false;
+    group.add(diagGroup);
+    els.diagonal = diagGroup;
+
+    // satu contoh bidang diagonal (persegi panjang lewat diagonal atas & bawah)
+    const bdGeo = new THREE.BufferGeometry();
+    const bdPts = new Float32Array([
+      -hw,-hh,-hd,  hw,hh,-hd,  hw,hh,hd,
+      -hw,-hh,-hd,  hw,hh,hd,  -hw,-hh,hd
+    ]);
+    bdGeo.setAttribute('position', new THREE.BufferAttribute(bdPts, 3));
+    bdGeo.computeVertexNormals();
+    const bdMesh = new THREE.Mesh(bdGeo, new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent:true, opacity:0.4, side: THREE.DoubleSide }));
+    bdMesh.visible = false;
+    group.add(bdMesh);
+    els.bidangDiagonal = bdMesh;
+  }
+
+  // JARI-JARI & DIAMETER — bola, tabung, kerucut
+  if(['bola','tabung','kerucut'].includes(type)){
+    const r = d.r;
+    const jGroup = new THREE.Group();
+    const jGeo = new THREE.BufferGeometry();
+    jGeo.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, r,0,0], 3));
+    jGroup.add(new THREE.LineSegments(jGeo, new THREE.LineBasicMaterial({ color: 0xfbbf24 })));
+
+    const dGeo = new THREE.BufferGeometry();
+    dGeo.setAttribute('position', new THREE.Float32BufferAttribute([0,-r,0, 0,r,0], 3));
+    jGroup.add(new THREE.LineSegments(dGeo, new THREE.LineBasicMaterial({ color: 0xf472b6 })));
+
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.05,12,12), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+    marker.position.set(r,0,0);
+    jGroup.add(marker);
+
+    jGroup.visible = false;
+    group.add(jGroup);
+    els.jariJari = jGroup;
+  }
+
+  // SELIMUT (tabung) / SELIMUT & PUNCAK (kerucut)
+  if(type === 'tabung'){
+    const shell = new THREE.Mesh(
+      new THREE.CylinderGeometry(d.r, d.r, d.h, 32, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x34d399, transparent:true, opacity:0.45, side: THREE.DoubleSide })
+    );
+    shell.visible = false;
+    group.add(shell);
+    els.selimut = shell;
+  }
+  if(type === 'kerucut'){
+    const spGroup = new THREE.Group();
+    const shell = new THREE.Mesh(
+      new THREE.ConeGeometry(d.r, d.h, 32, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x34d399, transparent:true, opacity:0.45, side: THREE.DoubleSide })
+    );
+    spGroup.add(shell);
+    const puncak = new THREE.Mesh(new THREE.SphereGeometry(0.07,12,12), new THREE.MeshBasicMaterial({ color: 0xf87171 }));
+    puncak.position.set(0, d.h/2, 0);
+    spGroup.add(puncak);
+    spGroup.visible = false;
+    group.add(spGroup);
+    els.selimutPuncak = spGroup;
+  }
+
+  return { group, els };
+}
+
+function setEduStep(shapeObj, key){
+  shapeObj.edu.group.children.forEach(c => c.visible = false);
+  shapeObj.eduPulse = false;
+  shapeObj.eduStep = key || null;
+  if(key === 'sisi'){
+    shapeObj.eduPulse = true;
+  } else if(key && shapeObj.edu.els[key]){
+    shapeObj.edu.els[key].visible = true;
+  }
+}
+
+function showCaption(key){
+  const info = ELEMENT_INFO[key];
+  if(!info){ eduCaptionEl.style.display = 'none'; return; }
+  eduCaptionEl.innerHTML = `<b>${info.label}</b><br>${info.desc}`;
+  eduCaptionEl.style.display = 'block';
+}
+function hideCaption(){ eduCaptionEl.style.display = 'none'; }
+
+function updateLegend(type){
+  const keys = ELEMENTS_BY_TYPE[type] || [];
+  if(!keys.length){ eduLegendEl.style.display = 'none'; return; }
+  let html = `<div class="legendTitle">${type} — angkat jari</div>`;
+  keys.forEach((k,i)=>{ html += `<div>${i+1} jari → ${ELEMENT_INFO[k].label}</div>`; });
+  eduLegendEl.innerHTML = html;
+  eduLegendEl.style.display = 'block';
+}
+function hideLegend(){ eduLegendEl.style.display = 'none'; }
+
+/* ============ SPAWN & KELOLA OBJEK ============ */
 let currentColor = 0x5eead4;
-const shapes = []; // { mesh, grabbed, offset, spinSpeed }
+let zoomEnabled = true;
+let learnModeEnabled = true;
+const shapes = [];
 
 function spawnShape(type){
   const geo = makeGeometry(type);
@@ -256,19 +510,27 @@ function spawnShape(type){
     emissive: new THREE.Color(currentColor).multiplyScalar(0.12)
   });
   const mesh = new THREE.Mesh(geo, mat);
-  // posisi acak dekat tengah supaya tidak numpuk persis
   mesh.position.set((Math.random()-0.5)*2.5, (Math.random()-0.5)*1.5, 0);
   mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
   scene.add(mesh);
+
+  const edu = buildEduHelpers(type, mesh);
+  mesh.add(edu.group);
+
   shapes.push({
-    mesh,
+    mesh, type, edu,
     grabbed: false,
+    heldBy: null,
     offset: new THREE.Vector3(),
+    prevAngle: 0,
+    prevPinch: null,
+    scale: 1,
+    eduStep: null,
+    eduPulse: false,
     spin: new THREE.Vector3((Math.random()-0.5)*0.01, (Math.random()-0.5)*0.015, 0)
   });
 }
 
-// mulai dengan satu bola
 spawnShape('bola');
 
 document.querySelectorAll('.shapeBtn').forEach(btn=>{
@@ -278,6 +540,28 @@ document.querySelectorAll('.shapeBtn').forEach(btn=>{
 document.getElementById('clearBtn').addEventListener('click', ()=>{
   shapes.forEach(s => scene.remove(s.mesh));
   shapes.length = 0;
+  hideCaption(); hideLegend();
+});
+
+const zoomBtn = document.getElementById('zoomToggleBtn');
+zoomBtn.addEventListener('click', ()=>{
+  zoomEnabled = !zoomEnabled;
+  zoomBtn.textContent = 'Zoom: ' + (zoomEnabled ? 'ON' : 'OFF');
+  zoomBtn.classList.toggle('off', !zoomEnabled);
+  if(!zoomEnabled){
+    shapes.forEach(s=>{ s.scale = 1; s.mesh.scale.setScalar(1); s.prevPinch = null; });
+  }
+});
+
+const learnBtn = document.getElementById('learnToggleBtn');
+learnBtn.addEventListener('click', ()=>{
+  learnModeEnabled = !learnModeEnabled;
+  learnBtn.textContent = 'Mode Belajar: ' + (learnModeEnabled ? 'ON' : 'OFF');
+  learnBtn.classList.toggle('off', !learnModeEnabled);
+  if(!learnModeEnabled){
+    shapes.forEach(s=> setEduStep(s, null));
+    hideCaption(); hideLegend();
+  }
 });
 
 /* ---- warna ---- */
@@ -285,7 +569,6 @@ const swatches = document.querySelectorAll('.swatch');
 const customColor = document.getElementById('customColor');
 function applyColor(hexNum){
   currentColor = hexNum;
-  // warnai objek yang sedang digenggam kalau ada, kalau tidak warnai objek terakhir
   const target = shapes.find(s=>s.grabbed) || shapes[shapes.length-1];
   if(target){
     target.mesh.material.color.setHex(hexNum);
@@ -324,10 +607,9 @@ function isFist(lm){
   for(let i=0;i<tips.length;i++){
     if(dist(lm[tips[i]], wrist) < dist(lm[pips[i]], wrist)) curled++;
   }
-  return curled >= 3;
+  return curled === 4; // kepalan penuh, biar tidak bentrok sama gestur hitung jari
 }
 
-// konversi titik layar (px) -> world point di dragPlane pada kedalaman objek
 function screenToWorld(px, py, depthZ){
   const ndc = new THREE.Vector2(
     (px / overlay.clientWidth) * 2 - 1,
@@ -340,84 +622,183 @@ function screenToWorld(px, py, depthZ){
   return point || new THREE.Vector3();
 }
 
+function findNearestFreeShape(handXpx, handYpx, requireFree){
+  let nearest = null, nearestDist = Infinity;
+  shapes.forEach(s=>{
+    if(requireFree && s.heldBy !== null) return;
+    const v = s.mesh.position.clone().project(camera);
+    const spx = (v.x*0.5+0.5) * overlay.clientWidth;
+    const spy = (-v.y*0.5+0.5) * overlay.clientHeight;
+    const d = Math.hypot(spx - handXpx, spy - handYpx);
+    if(d < nearestDist){ nearestDist = d; nearest = s; }
+  });
+  return { nearest, nearestDist };
+}
+
 function onResults(results){
   ctx.save();
   ctx.clearRect(0,0,overlay.width, overlay.height);
 
-  const hasHand = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+  const handsArr = results.multiHandLandmarks || [];
+  const hasHand = handsArr.length > 0;
+
+  // reset sorotan unsur tiap frame — akan diisi ulang kalau gesturenya masih aktif
+  shapes.forEach(s => setEduStep(s, null));
+  let legendShown = false;
+  let captionShown = false;
 
   if(hasHand){
     statusDot.classList.add('live');
-    statusText.textContent = 'Tangan terdeteksi';
+    statusText.textContent = handsArr.length >= 2 ? '2 tangan terdeteksi' : 'Tangan terdeteksi';
 
-    const lm = results.multiHandLandmarks[0];
+    handsArr.forEach((lm, handIdx)=>{
+      // gambar skeleton tangan
+      ctx.fillStyle = 'rgba(94,234,212,0.9)';
+      ctx.strokeStyle = 'rgba(94,234,212,0.5)';
+      ctx.lineWidth = 2;
+      const conn = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+        [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+        [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+      conn.forEach(([a,b])=>{
+        ctx.beginPath();
+        ctx.moveTo(lm[a].x*overlay.width, lm[a].y*overlay.height);
+        ctx.lineTo(lm[b].x*overlay.width, lm[b].y*overlay.height);
+        ctx.stroke();
+      });
+      lm.forEach(p=>{
+        ctx.beginPath();
+        ctx.arc(p.x*overlay.width, p.y*overlay.height, 3, 0, Math.PI*2);
+        ctx.fill();
+      });
 
-    ctx.fillStyle = 'rgba(94,234,212,0.9)';
-    ctx.strokeStyle = 'rgba(94,234,212,0.5)';
-    ctx.lineWidth = 2;
-    const conn = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
-      [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
-      [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
-    conn.forEach(([a,b])=>{
-      ctx.beginPath();
-      ctx.moveTo(lm[a].x*overlay.width, lm[a].y*overlay.height);
-      ctx.lineTo(lm[b].x*overlay.width, lm[b].y*overlay.height);
-      ctx.stroke();
+      const palm = lm[9];
+      const handXpx = (1 - palm.x) * overlay.width;
+      const handYpx = palm.y * overlay.height;
+      const fist = isFist(lm);
+
+      const idxXpx = (1 - lm[5].x) * overlay.width;
+      const idxYpx = lm[5].y * overlay.height;
+      const pinkyXpx = (1 - lm[17].x) * overlay.width;
+      const pinkyYpx = lm[17].y * overlay.height;
+      const handAngle = Math.atan2(pinkyYpx - idxYpx, pinkyXpx - idxXpx);
+
+      const thumbXpx = (1 - lm[4].x) * overlay.width;
+      const thumbYpx = lm[4].y * overlay.height;
+      const tipXpx = (1 - lm[8].x) * overlay.width;
+      const tipYpx = lm[8].y * overlay.height;
+      const pinchDist = Math.hypot(thumbXpx - tipXpx, thumbYpx - tipYpx);
+
+      let held = shapes.find(s => s.heldBy === handIdx);
+
+      if(fist && !held){
+        const { nearest, nearestDist } = findNearestFreeShape(handXpx, handYpx, true);
+        if(nearest && nearestDist < 110){
+          nearest.heldBy = handIdx;
+          nearest.grabbed = true;
+          const worldPt = screenToWorld(handXpx, handYpx, nearest.mesh.position.z);
+          nearest.offset.copy(nearest.mesh.position).sub(worldPt);
+          nearest.prevAngle = handAngle;
+          nearest.prevPinch = pinchDist;
+          held = nearest;
+        }
+      }
+
+      if(!fist && held){
+        held.heldBy = null;
+        held.grabbed = false;
+        held.prevPinch = null;
+      }
+
+      if(fist && held){
+        const worldPt = screenToWorld(handXpx, handYpx, held.mesh.position.z);
+        held.mesh.position.copy(worldPt.add(held.offset));
+
+        let delta = handAngle - held.prevAngle;
+        if(delta > Math.PI) delta -= Math.PI * 2;
+        if(delta < -Math.PI) delta += Math.PI * 2;
+        held.mesh.rotation.y -= delta * 2.8;
+        held.prevAngle = handAngle;
+
+        if(zoomEnabled){
+          if(held.prevPinch === null){
+            held.prevPinch = pinchDist;
+          } else {
+            const ratio = pinchDist / Math.max(held.prevPinch, 1);
+            held.scale = Math.min(3.2, Math.max(0.25, held.scale * ratio));
+            held.mesh.scale.setScalar(held.scale);
+            held.prevPinch = pinchDist;
+          }
+        } else {
+          held.prevPinch = null;
+        }
+      }
+
+      // --- MODE BELAJAR: hitung jari (hanya saat tangan TIDAK mengepal) ---
+      if(learnModeEnabled && !fist){
+        const extended = [8,12,16,20].map((tipIdx, i)=>{
+          const pipIdx = [6,10,14,18][i];
+          return dist(lm[tipIdx], lm[0]) > dist(lm[pipIdx], lm[0]);
+        });
+        const count4 = extended.filter(Boolean).length;
+        const thumbSpread = dist(lm[4], lm[5]) > dist(lm[2], lm[5]) * 1.15;
+
+        let step = 0;
+        if(count4 >= 1 && count4 <= 4) step = count4;
+        if(count4 === 4 && thumbSpread) step = 5;
+
+        let target = held;
+        if(!target){
+          const { nearest, nearestDist } = findNearestFreeShape(handXpx, handYpx, false);
+          if(nearest && nearestDist < 260) target = nearest;
+        }
+
+        if(target){
+          updateLegend(target.type);
+          legendShown = true;
+          if(step > 0){
+            const keys = ELEMENTS_BY_TYPE[target.type] || [];
+            const idx = Math.min(step, keys.length) - 1;
+            if(idx >= 0){
+              const key = keys[idx];
+              setEduStep(target, key);
+              showCaption(key);
+              captionShown = true;
+            }
+          }
+        }
+      }
     });
-    lm.forEach(p=>{
-      ctx.beginPath();
-      ctx.arc(p.x*overlay.width, p.y*overlay.height, 3, 0, Math.PI*2);
-      ctx.fill();
-    });
 
-    const palm = lm[9];
-    const handXpx = (1 - palm.x) * overlay.width; // mirror manual
-    const handYpx = palm.y * overlay.height;
-    const fist = isFist(lm);
-
-    // cari objek terdekat dengan titik tangan (dalam ruang layar)
-    let nearest = null, nearestDist = Infinity;
     shapes.forEach(s=>{
-      const v = s.mesh.position.clone().project(camera);
-      const spx = (v.x*0.5+0.5) * overlay.clientWidth;
-      const spy = (-v.y*0.5+0.5) * overlay.clientHeight;
-      const d = Math.hypot(spx - handXpx, spy - handYpx);
-      if(d < nearestDist){ nearestDist = d; nearest = s; }
-    });
-
-    if(fist && nearest && !shapes.some(s=>s.grabbed) && nearestDist < 110){
-      nearest.grabbed = true;
-      const worldPt = screenToWorld(handXpx, handYpx, nearest.mesh.position.z);
-      nearest.offset.copy(nearest.mesh.position).sub(worldPt);
-    }
-    if(!fist){
-      shapes.forEach(s=> s.grabbed = false);
-    }
-
-    shapes.forEach(s=>{
-      if(s.grabbed){
-        const worldPt = screenToWorld(handXpx, handYpx, s.mesh.position.z);
-        s.mesh.position.copy(worldPt.add(s.offset));
-        s.mesh.rotation.y += 0.05; // sedikit muter pas digenggam biar terasa "3D"
-        s.mesh.material.emissiveIntensity = 1.4;
-      } else {
-        s.mesh.material.emissiveIntensity = 1;
+      if(s.heldBy !== null && s.heldBy >= handsArr.length){
+        s.heldBy = null; s.grabbed = false; s.prevPinch = null;
       }
     });
   } else {
     statusDot.classList.remove('live');
     statusText.textContent = 'Tangan tidak terlihat';
-    shapes.forEach(s=> s.grabbed = false);
+    shapes.forEach(s=>{ s.grabbed = false; s.heldBy = null; s.prevPinch = null; });
   }
+
+  if(!legendShown) hideLegend();
+  if(!captionShown) hideCaption();
 
   ctx.restore();
 }
 
-/* ============ LOOP RENDER (rotasi idle) ============ */
+/* ============ LOOP RENDER ============ */
 function animate(){
   requestAnimationFrame(animate);
+  const t = performance.now();
   shapes.forEach(s=>{
-    if(!s.grabbed){
+    if(s.eduPulse){
+      s.mesh.material.emissiveIntensity = 1 + Math.sin(t * 0.006) * 0.6;
+    } else if(s.grabbed){
+      s.mesh.material.emissiveIntensity = 1.4;
+    } else {
+      s.mesh.material.emissiveIntensity = 1;
+    }
+    if(!s.grabbed && !s.eduStep){
       s.mesh.rotation.x += s.spin.x;
       s.mesh.rotation.y += s.spin.y;
     }
@@ -445,7 +826,7 @@ async function start(){
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
     });
     hands.setOptions({
-      maxNumHands: 1,
+      maxNumHands: 2,
       modelComplexity: 1,
       minDetectionConfidence: 0.6,
       minTrackingConfidence: 0.5
